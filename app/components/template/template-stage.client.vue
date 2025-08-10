@@ -1,15 +1,12 @@
 <template>
-  <div
-    ref="container"
-    class="overflow-hidden w-full h-screen bg-slast-dark"
-  ></div>
+  <div ref="containerRef" class="h-full w-full"></div>
 </template>
 
 <script setup lang="ts">
 import Konva from "konva";
 import { ref, onMounted, nextTick } from "vue";
 
-const container = ref<HTMLDivElement | null>(null);
+const containerRef = ref<HTMLDivElement | null>(null);
 const artboardWidth = ref<number>(794);
 const artboardHeight = ref<number>(1123);
 
@@ -18,35 +15,31 @@ let layer: Konva.Layer;
 let content: Konva.Group;
 let transformer: Konva.Transformer | null = null;
 
-const gridSize = 10; // ขนาดช่อง grid
-const snapDistance = 5; // ระยะดูดเข้าหา grid หรือขอบ
+const initialScale = 0.7;
+const gridSize = 10;
+const snapDistance = 5;
 
 function initStage(): void {
-  const containerEl = container.value;
-  if (!containerEl) return;
+  if (!containerRef.value) return;
 
-  const containerWidth = containerEl.clientWidth;
-  const containerHeight = containerEl.clientHeight || window.innerHeight;
+  const containerWidth = containerRef.value.clientWidth;
+  const containerHeight = containerRef.value.clientHeight;
 
+  const offsetX = (containerWidth - artboardWidth.value * initialScale) / 2;
+  const offsetY = (containerHeight - artboardHeight.value * initialScale) / 2;
+
+  // 1. สร้าง Stage
   stage = new Konva.Stage({
-    container: containerEl,
+    container: containerRef.value,
     width: containerWidth,
     height: containerHeight,
     draggable: true,
   });
 
+  // 2. สร้าง Layer
   layer = new Konva.Layer();
-  stage.add(layer);
 
-  // 🔍 Fit & scale
-  const scaleX = containerWidth / artboardWidth.value;
-  const scaleY = containerHeight / artboardHeight.value;
-  const baseScale = Math.min(scaleX, scaleY);
-  const initialScale = baseScale * 0.7;
-
-  const offsetX = (containerWidth - artboardWidth.value * initialScale) / 2;
-  const offsetY = (containerHeight - artboardHeight.value * initialScale) / 2;
-
+  // 3. สร้าง Group สำหรับ Content
   content = new Konva.Group({
     x: offsetX,
     y: offsetY,
@@ -61,7 +54,7 @@ function initStage(): void {
   });
 
   layer.add(content);
-  layer.draw();
+  stage.add(layer);
 }
 
 function createArtboard(): void {
@@ -73,7 +66,6 @@ function createArtboard(): void {
     fill: "#fff",
     strokeWidth: 0,
   });
-
   content.add(artBoard);
   layer.draw();
 }
@@ -82,7 +74,7 @@ function setupZoomHandler(): void {
   const minScale = 0.5;
   const maxScale = 5;
 
-  container.value!.addEventListener("wheel", (e: WheelEvent) => {
+  containerRef.value!.addEventListener("wheel", (e: WheelEvent) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
 
@@ -113,11 +105,11 @@ function setupZoomHandler(): void {
   });
 }
 
-function setupContextMenuBlock(): void {
-  container.value!.addEventListener("contextmenu", (e: MouseEvent) => {
-    e.preventDefault();
-  });
-}
+// function setupContextMenuBlock(): void {
+//   container.value!.addEventListener("contextmenu", (e: MouseEvent) => {
+//     e.preventDefault();
+//   });
+// }
 
 function handlePasteImageFromClipboard(): void {
   window.addEventListener("paste", async (e: ClipboardEvent) => {
@@ -144,9 +136,9 @@ function handlePasteImageFromClipboard(): void {
         });
         konvaImage.on("click", (e) => {
           e.cancelBubble = true;
-          newTransformer(konvaImage);
+          // newTransformer(konvaImage);
         });
-        enableSnap(konvaImage);
+        // enableSnap(konvaImage);
         content.add(konvaImage);
         layer.draw();
       };
@@ -156,77 +148,78 @@ function handlePasteImageFromClipboard(): void {
   });
 }
 
-function newTransformer(node: Konva.Node) {
-  if (!layer) return;
+// function newTransformer(node: Konva.Node) {
+//   if (!layer) return;
 
-  if (transformer) {
-    transformer.destroy();
-    transformer = null;
-  }
+//   if (transformer) {
+//     transformer.destroy();
+//     transformer = null;
+//   }
 
-  transformer = new Konva.Transformer({
-    nodes: [node],
-    enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
-    boundBoxFunc: (oldBox, newBox) => newBox,
-  });
+//   transformer = new Konva.Transformer({
+//     nodes: [node],
+//     enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"],
+//     boundBoxFunc: (oldBox, newBox) => newBox,
+//   });
 
-  layer.add(transformer);
-  layer.draw();
-}
+//   layer.add(transformer);
+//   layer.draw();
+// }
 
-function removeTransformer() {
-  if (transformer) {
-    transformer.destroy();
-    transformer = null;
-    layer.draw();
-  }
-}
+// function removeTransformer() {
+//   if (transformer) {
+//     transformer.destroy();
+//     transformer = null;
+//     layer.draw();
+//   }
+// }
 
-function setupEscToCancel() {
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      removeTransformer();
-    }
-  });
-}
+// function setupEscToCancel() {
+//   window.addEventListener("keydown", (e) => {
+//     if (e.key === "Escape") {
+//       removeTransformer();
+//     }
+//   });
+// }
 
-function enableSnap(node: Konva.Node) {
-  node.on("dragmove", () => {
-    const pos = node.position();
-    let newX = pos.x;
-    let newY = pos.y;
+// function enableSnap(node: Konva.Node) {
+//   node.on("dragmove", () => {
+//     const pos = node.position();
+//     let newX = pos.x;
+//     let newY = pos.y;
 
-    // Snap to grid
-    const gridX = Math.round(pos.x / gridSize) * gridSize;
-    const gridY = Math.round(pos.y / gridSize) * gridSize;
+//     // Snap to grid
+//     const gridX = Math.round(pos.x / gridSize) * gridSize;
+//     const gridY = Math.round(pos.y / gridSize) * gridSize;
 
-    if (Math.abs(pos.x - gridX) < snapDistance) {
-      newX = gridX;
-    }
-    if (Math.abs(pos.y - gridY) < snapDistance) {
-      newY = gridY;
-    }
+//     if (Math.abs(pos.x - gridX) < snapDistance) {
+//       newX = gridX;
+//     }
+//     if (Math.abs(pos.y - gridY) < snapDistance) {
+//       newY = gridY;
+//     }
 
-    // Snap to artboard edges
-    const artRight = artboardWidth.value - node.width();
-    const artBottom = artboardHeight.value - node.height();
+//     // Snap to artboard edges
+//     const artRight = artboardWidth.value - node.width();
+//     const artBottom = artboardHeight.value - node.height();
 
-    if (Math.abs(newX) < snapDistance) newX = 0;
-    if (Math.abs(newY) < snapDistance) newY = 0;
-    if (Math.abs(newX - artRight) < snapDistance) newX = artRight;
-    if (Math.abs(newY - artBottom) < snapDistance) newY = artBottom;
+//     if (Math.abs(newX) < snapDistance) newX = 0;
+//     if (Math.abs(newY) < snapDistance) newY = 0;
+//     if (Math.abs(newX - artRight) < snapDistance) newX = artRight;
+//     if (Math.abs(newY - artBottom) < snapDistance) newY = artBottom;
 
-    node.position({ x: newX, y: newY });
-  });
-}
+//     node.position({ x: newX, y: newY });
+//   });
+// }
+
 onMounted(async () => {
   await nextTick();
-  if (!container.value) return;
+  if (!containerRef.value) return;
 
   initStage();
   createArtboard();
   setupZoomHandler();
-  setupContextMenuBlock();
+  // setupContextMenuBlock();
   handlePasteImageFromClipboard();
 
   // setupEscToCancel();
