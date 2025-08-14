@@ -17,9 +17,13 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()],
   },
-  modules: ["@nuxt/fonts", "@nuxtjs/color-mode", "@nuxt/image"],
+  modules: ["@nuxt/fonts", "@nuxtjs/color-mode", "@nuxt/image", "shadcn-nuxt"],
   fonts: {
     families: [{ name: "Kanit", provider: "google" }],
+  },
+  shadcn: {
+    prefix: "",
+    componentDir: "./components/ui",
   },
   colorMode: {
     preference: "system",
