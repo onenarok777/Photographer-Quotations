@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "composite": true,
-    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "~/*": [
@@ -12,7 +10,6 @@
       ]
     }
   },
-  "extends": "./.nuxt/tsconfig.app.json",
   "files": [],
   "references": [
     {

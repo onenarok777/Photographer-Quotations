@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  css: ["~/assets/css/global.css"],
+  css: ["~/assets/css/main.css"],
   vite: {
     plugins: [tailwindcss()],
   },
@@ -39,5 +39,10 @@ export default defineNuxtConfig({
   },
   typescript: {
     typeCheck: true,
+  },
+  runtimeConfig: {
+    public: {
+      unsplashApiKey: process.env.UPSLASH_KEY,
+    },
   },
 });
