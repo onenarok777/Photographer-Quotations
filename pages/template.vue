@@ -18,7 +18,7 @@
         </ul>
         <component :is="listMenus[isActive]?.component" />
       </div>
-      <div class="bg-green-500 flex-1">
+      <div class="bg-slate-200 flex-1">
         <templateStage />
       </div>
     </div>

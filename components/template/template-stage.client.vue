@@ -13,7 +13,7 @@ const artboardHeight = ref<number>(1123);
 let stage: Konva.Stage;
 let layer: Konva.Layer;
 let content: Konva.Group;
-let transformer: Konva.Transformer | null = null;
+// let transformer: Konva.Transformer | null = null;
 
 const initialScale = 0.7;
 const gridSize = 10;
@@ -28,7 +28,6 @@ function initStage(): void {
   const offsetX = (containerWidth - artboardWidth.value * initialScale) / 2;
   const offsetY = (containerHeight - artboardHeight.value * initialScale) / 2;
 
-  // 1. สร้าง Stage
   stage = new Konva.Stage({
     container: containerRef.value,
     width: containerWidth,
@@ -36,10 +35,7 @@ function initStage(): void {
     draggable: true,
   });
 
-  // 2. สร้าง Layer
   layer = new Konva.Layer();
-
-  // 3. สร้าง Group สำหรับ Content
   content = new Konva.Group({
     x: offsetX,
     y: offsetY,
@@ -117,36 +113,88 @@ function handlePasteImageFromClipboard(): void {
     if (!items) return;
 
     for (const item of items) {
-      if (item.type.indexOf("image") === -1) continue;
+      if (!item.type.startsWith("image")) continue;
 
       const blob = item.getAsFile();
       if (!blob) continue;
 
       const url = URL.createObjectURL(blob);
-      const imageObj = new window.Image();
 
-      imageObj.onload = () => {
+      // วางตรงกลาง Stage
+      const stageWidth = stage.width();
+      const stageHeight = stage.height();
+      const x = stageWidth / 2;
+      const y = stageHeight / 2;
+
+      const img = new window.Image();
+      img.onload = () => {
         const konvaImage = new Konva.Image({
-          image: imageObj,
-          x: 50,
-          y: 50,
-          width: imageObj.width,
-          height: imageObj.height,
+          image: img,
+          x,
+          y,
+          width: img.width / 2,
+          height: img.height / 2,
           draggable: true,
         });
-        konvaImage.on("click", (e) => {
-          e.cancelBubble = true;
-          // newTransformer(konvaImage);
-        });
-        // enableSnap(konvaImage);
-        content.add(konvaImage);
+        layer.add(konvaImage);
+        enableSnap(konvaImage);
         layer.draw();
       };
-
-      imageObj.src = url;
+      img.src = url;
     }
   });
 }
+
+function handleDropImage(): void {
+  if (!containerRef.value) return;
+
+  containerRef.value.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+
+  containerRef.value.addEventListener("drop", (e: DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        if (!file.type.startsWith("image")) continue;
+        const url = URL.createObjectURL(file);
+        addImageToLayer(e, url);
+      }
+    } else {
+      const uri = e.dataTransfer?.getData("text/uri-list");
+      if (uri) addImageToLayer(e, uri);
+    }
+  });
+}
+
+const addImageToLayer = (e: DragEvent, url: string) => {
+  const rect = containerRef.value!.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  const img = new window.Image();
+  img.onload = () => {
+    const width = img.width / 2;
+    const height = img.height / 2;
+
+    // ให้เมาส์อยู่ตรงกลางภาพ
+    const konvaImage = new Konva.Image({
+      image: img,
+      x: mouseX - width / 2,
+      y: mouseY - height / 2,
+      width,
+      height,
+      draggable: true,
+    });
+
+    content.add(konvaImage);
+    enableSnap(konvaImage);
+    layer.draw();
+  };
+  img.src = url;
+};
 
 // function newTransformer(node: Konva.Node) {
 //   if (!layer) return;
@@ -182,35 +230,39 @@ function handlePasteImageFromClipboard(): void {
 //   });
 // }
 
-// function enableSnap(node: Konva.Node) {
-//   node.on("dragmove", () => {
-//     const pos = node.position();
-//     let newX = pos.x;
-//     let newY = pos.y;
+function enableSnap(node: Konva.Node) {
+  node.on("dragmove", () => {
+    // local position ภายใน content
+    const scale = content.scaleX(); // assume scaleX = scaleY
+    const localX = (node.x() - 0) / scale; // node.x() เทียบกับ content
+    const localY = (node.y() - 0) / scale;
 
-//     // Snap to grid
-//     const gridX = Math.round(pos.x / gridSize) * gridSize;
-//     const gridY = Math.round(pos.y / gridSize) * gridSize;
+    let newX = localX;
+    let newY = localY;
 
-//     if (Math.abs(pos.x - gridX) < snapDistance) {
-//       newX = gridX;
-//     }
-//     if (Math.abs(pos.y - gridY) < snapDistance) {
-//       newY = gridY;
-//     }
+    // Snap to grid
+    const gridX = Math.round(localX / gridSize) * gridSize;
+    const gridY = Math.round(localY / gridSize) * gridSize;
 
-//     // Snap to artboard edges
-//     const artRight = artboardWidth.value - node.width();
-//     const artBottom = artboardHeight.value - node.height();
+    if (Math.abs(localX - gridX) < snapDistance) newX = gridX;
+    if (Math.abs(localY - gridY) < snapDistance) newY = gridY;
 
-//     if (Math.abs(newX) < snapDistance) newX = 0;
-//     if (Math.abs(newY) < snapDistance) newY = 0;
-//     if (Math.abs(newX - artRight) < snapDistance) newX = artRight;
-//     if (Math.abs(newY - artBottom) < snapDistance) newY = artBottom;
+    // Snap to artboard edges
+    const artRight = artboardWidth.value - node.width() / scale;
+    const artBottom = artboardHeight.value - node.height() / scale;
 
-//     node.position({ x: newX, y: newY });
-//   });
-// }
+    if (Math.abs(newX) < snapDistance) newX = 0;
+    if (Math.abs(newY) < snapDistance) newY = 0;
+    if (Math.abs(newX - artRight) < snapDistance) newX = artRight;
+    if (Math.abs(newY - artBottom) < snapDistance) newY = artBottom;
+
+    // กลับเป็น global position ของ content
+    node.position({
+      x: newX * scale,
+      y: newY * scale,
+    });
+  });
+}
 
 onMounted(async () => {
   await nextTick();
@@ -221,6 +273,7 @@ onMounted(async () => {
   setupZoomHandler();
   // setupContextMenuBlock();
   handlePasteImageFromClipboard();
+  handleDropImage();
 
   // setupEscToCancel();
 });

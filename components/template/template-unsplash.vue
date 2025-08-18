@@ -10,7 +10,11 @@
     <div class="w-full overflow-auto px-2">
       <div class="columns-2 gap-2">
         <div v-for="(image, i) in listImage" :key="i" class="mb-2">
-          <img :src="image.urls.small" class="w-full rounded-lg" />
+          <img
+            :src="image.urls.small"
+            draggable="true"
+            class="w-full rounded-lg"
+          />
         </div>
       </div>
     </div>
