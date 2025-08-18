@@ -2,7 +2,7 @@
   <div class="h-screen overflow-hidden">
     <div class="w-full h-10 bg-blue-500 flex items-center p-2">asd</div>
     <div class="flex h-full">
-      <div class="w-96 bg-slate-500 flex">
+      <div class="min-w-96 max-w-96 bg-slate-500 flex">
         <ul class="bg-slate-400 pl-1 py-1">
           <li
             v-for="(menu, i) in listMenus"
