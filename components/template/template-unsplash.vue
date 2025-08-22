@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full flex flex-col gap-2">
+  <div class="w-full flex flex-col gap-2 overflow-y-auto">
     <div class="w-full p-2">
       <Input
         class="bg-white w-full"
