@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import type Konva from "konva";
+
 import {
   ref,
   reactive,
@@ -91,7 +92,6 @@ const onWheelZoom = (e: Konva.KonvaEventObject<WheelEvent>) => {
   if (!e.evt.ctrlKey && !e.evt.metaKey) return;
   e.evt.preventDefault();
 
-  const stage = stageRef.value?.getStage();
   const container = containerRef.value;
   if (!container) return;
 

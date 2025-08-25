@@ -17,7 +17,9 @@
       <component :is="listMenus[isActive]?.component" />
     </div>
     <div class="h-full w-full overflow-auto flex flex-col">
-      <div class="h-10">asd</div>
+      <div class="h-15 flex justify-end p-2">
+        <Button> Test </Button>
+      </div>
       <templateStage
         :art-board="{
           width: 1080,
