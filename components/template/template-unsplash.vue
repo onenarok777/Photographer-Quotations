@@ -11,9 +11,10 @@
       <div class="columns-2 gap-2">
         <div v-for="(image, i) in listImage" :key="i" class="mb-2">
           <img
-            :src="image.urls.small"
+            :src="image.small"
             draggable="true"
             class="w-full rounded-lg"
+            @dragstart="onDragStart($event, image)"
           />
         </div>
       </div>
@@ -21,13 +22,17 @@
   </div>
 </template>
 <script setup lang="ts">
-const config = useRuntimeConfig();
+interface Image {
+  small: string;
+  regular: string;
+}
 
+const config = useRuntimeConfig();
 const searchValue = ref<string>("vector");
-const listImage = ref<any[]>([]);
+const listImage = ref<Image[]>([]);
 
 const getUpslash = async () => {
-  const response = await $fetch(
+  const res: any = await $fetch(
     `https://api.unsplash.com/search/photos?page=1&query=${searchValue.value}`,
     {
       headers: {
@@ -36,7 +41,19 @@ const getUpslash = async () => {
     }
   );
 
-  listImage.value = (response as any).results;
+  listImage.value = await res.results.map((mp: { urls: Image }) => {
+    return {
+      small: mp.urls.small,
+      regular: mp.urls.regular,
+    };
+  });
+};
+
+const onDragStart = (e: DragEvent, image: Image) => {
+  if (e.dataTransfer) {
+    e.dataTransfer.setData("image/url", image.regular);
+    e.dataTransfer.effectAllowed = "copy";
+  }
 };
 
 onMounted(() => {

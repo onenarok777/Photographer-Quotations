@@ -1,182 +1,125 @@
 <template>
-  <div ref="containerRef" class="w-full h-full bg-gray-200 overflow-auto">
-    <div
-      :style="{
-        width: scrollAreaWidth + 'px',
-        height: scrollAreaHeight + 'px',
-        minWidth: '100%',
-        minHeight: '100%',
+  <div ref="containerRef" class="w-full h-full bg-red-200">
+    <v-stage
+      ref="stageRef"
+      :config="{
+        width: stageConfig.width,
+        height: stageConfig.height,
+        draggable: false,
       }"
-      class="relative flex items-center justify-center"
+      @mousedown="onStageMouseDown"
+      @mousemove="onStageMouseMove"
+      @mouseup="onStageMouseUp"
+      @mouseleave="onStageMouseUp"
+      @wheel="onWheel"
     >
-      <v-stage
-        ref="stageRef"
-        :config="{
-          width: scrollAreaWidth,
-          height: scrollAreaHeight,
-          scaleX: scale,
-          scaleY: scale,
-        }"
-        @wheel="onWheelZoom"
-      >
-        <v-layer ref="layerRef">
-          <v-rect :config="artboardConfig" :listening="false" />
-          <v-transformer ref="transformerRef" />
-        </v-layer>
-      </v-stage>
-    </div>
+      <v-layer ref="layerRef">
+        <v-rect :config="artboardConfig" />
+      </v-layer>
+    </v-stage>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, reactive, onMounted, nextTick } from "vue";
 import type Konva from "konva";
-
-import {
-  ref,
-  reactive,
-  computed,
-  onMounted,
-  onBeforeUnmount,
-  nextTick,
-} from "vue";
-
-interface ArtBoard {
-  width: number;
-  height: number;
-}
-
-const props = withDefaults(
-  defineProps<{
-    artBoard?: ArtBoard;
-  }>(),
-  {
-    artBoard: () => ({
-      width: 800,
-      height: 600,
-    }),
-  }
-);
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const stageRef = ref<Konva.Stage | null>(null);
 const layerRef = ref<Konva.Layer | null>(null);
-const transformerRef = ref<Konva.Transformer | null>(null);
 
-const stageWidth = ref(0);
-const stageHeight = ref(0);
-const scale = ref(1);
+const artboardWidth = 400;
+const artboardHeight = 300;
+
+const stageConfig = reactive({
+  width: 0,
+  height: 0,
+});
 
 const artboardConfig = reactive({
   x: 0,
   y: 0,
-  width: props.artBoard.width,
-  height: props.artBoard.height,
+  width: artboardWidth,
+  height: artboardHeight,
   fill: "#fff",
+  stroke: "#000",
+  strokeWidth: 2,
+  cornerRadius: 8,
 });
 
-const scrollAreaWidth = computed(() => {
-  const scaledArtboardWidth = props.artBoard.width * scale.value;
-  const padding = 200;
-  return Math.max(stageWidth.value, scaledArtboardWidth + padding);
-});
+// Track dragging
+let isDragging = false;
+let lastPos = { x: 0, y: 0 };
 
-const scrollAreaHeight = computed(() => {
-  const scaledArtboardHeight = props.artBoard.height * scale.value;
-  const padding = 50;
-  return Math.max(stageHeight.value, scaledArtboardHeight + padding);
-});
+const onStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  if (!stageRef.value) return;
+  if (e.evt.metaKey) {
+    isDragging = true;
+    lastPos = { x: e.evt.clientX, y: e.evt.clientY };
+  }
+};
 
-const SCALE_BY = 1.05;
+const onStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  if (!isDragging || !stageRef.value) return;
 
-const onWheelZoom = (e: Konva.KonvaEventObject<WheelEvent>) => {
-  if (!e.evt.ctrlKey && !e.evt.metaKey) return;
+  const stage = stageRef.value.getStage(); // <-- ต้องเอา stage จริง
+  if (!stage) return;
+
+  const dx = e.evt.clientX - lastPos.x;
+  const dy = e.evt.clientY - lastPos.y;
+
+  stage.x(stage.x() + dx);
+  stage.y(stage.y() + dy);
+  stage.batchDraw();
+
+  lastPos = { x: e.evt.clientX, y: e.evt.clientY };
+};
+
+const onStageMouseUp = () => {
+  isDragging = false;
+};
+
+const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
   e.evt.preventDefault();
+  if (!stageRef.value) return;
 
-  const container = containerRef.value;
-  if (!container) return;
+  const stage = stageRef.value.getStage(); // เอา instance จริง
+  if (!stage) return;
 
-  const containerRect = container.getBoundingClientRect();
-  const mouseX = e.evt.clientX - containerRect.left;
-  const mouseY = e.evt.clientY - containerRect.top;
+  const oldScale = stage.scaleX();
+  const pointer = stage.getPointerPosition();
+  if (!pointer) return;
 
-  const oldScale = scale.value;
-  const direction = e.evt.deltaY < 0 ? 1 : -1;
-  const newScale = direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
+  const scaleBy = 1.1;
+  const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
 
-  const stageMouseX = (mouseX + container.scrollLeft) / oldScale;
-  const stageMouseY = (mouseY + container.scrollTop) / oldScale;
+  stage.scale({ x: newScale, y: newScale });
 
-  scale.value = newScale;
+  const mousePointTo = {
+    x: pointer.x / oldScale - stage.x() / oldScale,
+    y: pointer.y / oldScale - stage.y() / oldScale,
+  };
 
-  const newScrollLeft = stageMouseX * newScale - mouseX;
-  const newScrollTop = stageMouseY * newScale - mouseY;
+  stage.x(pointer.x - mousePointTo.x * newScale);
+  stage.y(pointer.y - mousePointTo.y * newScale);
 
-  setArtBoardCenter();
-
-  nextTick(() => {
-    container.scrollLeft = Math.max(0, newScrollLeft);
-    container.scrollTop = Math.max(0, newScrollTop);
-  });
+  stage.batchDraw();
 };
 
-const setArtBoardCenter = () => {
-  const scrollAreaCenterX = scrollAreaWidth.value / 2;
-  const scrollAreaCenterY = scrollAreaHeight.value / 2;
+onMounted(async () => {
+  await nextTick();
 
-  artboardConfig.x =
-    (scrollAreaCenterX - (props.artBoard.width * scale.value) / 2) /
-    scale.value;
-  artboardConfig.y =
-    (scrollAreaCenterY - (props.artBoard.height * scale.value) / 2) /
-    scale.value;
-};
-
-const fitArtboardToContainer = () => {
-  if (!containerRef.value) return;
-
-  const containerRect = containerRef.value.getBoundingClientRect();
-  const containerW = containerRect.width;
-  const containerH = containerRect.height;
-
-  const artboardW = props.artBoard.width;
-  const artboardH = props.artBoard.height;
-
-  const scaleX = containerW / (artboardW + 200);
-  const scaleY = containerH / (artboardH + 200);
-  scale.value = Math.min(scaleX, scaleY, 1);
-
-  setArtBoardCenter();
-
-  nextTick(() => {
+  const resize = () => {
     if (!containerRef.value) return;
-    containerRef.value.scrollLeft = (scrollAreaWidth.value - containerW) / 2;
-    containerRef.value.scrollTop = (scrollAreaHeight.value - containerH) / 2;
-  });
-};
+    stageConfig.width = containerRef.value.clientWidth;
+    stageConfig.height = containerRef.value.clientHeight;
 
-const updateStageSize = () => {
-  if (!containerRef.value) return;
-  const rect = containerRef.value.getBoundingClientRect();
-  stageWidth.value = rect.width;
-  stageHeight.value = rect.height;
+    // Center artboard
+    artboardConfig.x = (stageConfig.width - artboardWidth) / 2;
+    artboardConfig.y = (stageConfig.height - artboardHeight) / 2;
+  };
 
-  setArtBoardCenter();
-};
-
-const resetView = () => {
-  scale.value = 1;
-  setArtBoardCenter();
-};
-
-onMounted(() => {
-  nextTick(() => {
-    updateStageSize();
-    fitArtboardToContainer();
-    window.addEventListener("resize", updateStageSize);
-  });
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", updateStageSize);
+  resize();
+  window.addEventListener("resize", resize);
 });
 </script>
