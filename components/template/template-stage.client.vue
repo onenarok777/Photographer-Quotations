@@ -24,6 +24,21 @@
 import { ref, reactive, onMounted, nextTick } from "vue";
 import type Konva from "konva";
 
+const props = withDefaults(
+  defineProps<{
+    artBoard?: {
+      width: number;
+      height: number;
+    };
+  }>(),
+  {
+    artBoard: () => ({
+      width: 400,
+      height: 300,
+    }),
+  }
+);
+
 const containerRef = ref<HTMLDivElement | null>(null);
 const stageRef = ref<Konva.Stage | null>(null);
 const layerRef = ref<Konva.Layer | null>(null);
@@ -39,15 +54,14 @@ const stageConfig = reactive({
 const artboardConfig = reactive({
   x: 0,
   y: 0,
-  width: artboardWidth,
-  height: artboardHeight,
+  width: props.artBoard.width,
+  height: props.artBoard.height,
   fill: "#fff",
   stroke: "#000",
   strokeWidth: 2,
   cornerRadius: 8,
 });
 
-// Track dragging
 let isDragging = false;
 let lastPos = { x: 0, y: 0 };
 
@@ -62,7 +76,7 @@ const onStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
 const onStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
   if (!isDragging || !stageRef.value) return;
 
-  const stage = stageRef.value.getStage(); // <-- ต้องเอา stage จริง
+  const stage = stageRef.value.getStage();
   if (!stage) return;
 
   const dx = e.evt.clientX - lastPos.x;
@@ -83,7 +97,7 @@ const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
   e.evt.preventDefault();
   if (!stageRef.value) return;
 
-  const stage = stageRef.value.getStage(); // เอา instance จริง
+  const stage = stageRef.value.getStage();
   if (!stage) return;
 
   const oldScale = stage.scaleX();
@@ -114,7 +128,6 @@ onMounted(async () => {
     stageConfig.width = containerRef.value.clientWidth;
     stageConfig.height = containerRef.value.clientHeight;
 
-    // Center artboard
     artboardConfig.x = (stageConfig.width - artboardWidth) / 2;
     artboardConfig.y = (stageConfig.height - artboardHeight) / 2;
   };
